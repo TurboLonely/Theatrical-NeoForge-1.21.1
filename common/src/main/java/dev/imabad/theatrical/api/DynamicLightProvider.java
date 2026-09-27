@@ -9,6 +9,7 @@ import org.joml.Vector3f;
 public interface DynamicLightProvider {
 
     BlockPos getOwnerPos();
+    /** @return the light's current world position, or {@code null} if it has not emitted yet. */
     Vector3f getLightPos();
     Level getLightWorld();
     default boolean isLightEnabled() {

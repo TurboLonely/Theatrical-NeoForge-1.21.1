@@ -1,5 +1,6 @@
 package dev.imabad.theatrical.networks;
 
+import dev.imabad.theatrical.Theatrical;
 import dev.imabad.theatrical.networks.members.NetworkMemberManager;
 import dev.imabad.theatrical.networks.members.TheatricalNetworkMember;
 import net.minecraft.nbt.CompoundTag;
@@ -23,9 +24,24 @@ public class TheatricalNetwork {
     public TheatricalNetwork(CompoundTag data){
         this.id = data.getUUID("id");
         this.name = data.getString("name");
-        this.mode = TheatricalNetworkMode.valueOf(data.getString("mode"));
+        this.mode = readMode(data.getString("mode"));
         this.members = new NetworkMemberManager(data);
         this.dmx = new NetworkDMXManager();
+    }
+
+    /**
+     * Reads the network mode without throwing on an unrecognised value. A stale enum name (typically from running an
+     * older build against a save written by a newer one) used to abort the whole {@code dmx_networks} load, and since
+     * vanilla replaces unreadable saved data with an empty instance the next save wiped every network on the server.
+     * Falling back keeps the rest of the file intact.
+     */
+    private static TheatricalNetworkMode readMode(String raw){
+        TheatricalNetworkMode mode = TheatricalNetworkMode.byName(raw);
+        if (mode == null) {
+            Theatrical.LOGGER.warn("Unknown DMX network mode '{}', falling back to PRIVATE", raw);
+            return TheatricalNetworkMode.PRIVATE;
+        }
+        return mode;
     }
     public TheatricalNetwork(String name){
         this.id = UUID.randomUUID();

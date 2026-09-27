@@ -1,5 +1,6 @@
 package dev.imabad.theatrical.networks.members;
 
+import dev.imabad.theatrical.Theatrical;
 import dev.imabad.theatrical.networks.TheatricalNetworkData;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -19,9 +20,21 @@ public record NetworkMemberManager(Set<TheatricalNetworkMember> members) {
         for (Tag tag : membersList) {
             CompoundTag member = (CompoundTag) tag;
             UUID player = member.getUUID("player");
-            TheatricalNetworkMemberRole role = TheatricalNetworkMemberRole.valueOf(member.getString("role"));
-            members.add(new TheatricalNetworkMember(player, role));
+            members.add(new TheatricalNetworkMember(player, readRole(member.getString("role"))));
         }
+    }
+
+    /**
+     * Reads a member role without throwing on an unrecognised value, so one stale entry cannot abort the load of the
+     * entire {@code dmx_networks} file (see {@code TheatricalNetwork#readMode}).
+     */
+    private static TheatricalNetworkMemberRole readRole(String raw) {
+        TheatricalNetworkMemberRole role = TheatricalNetworkMemberRole.byName(raw);
+        if (role == null) {
+            Theatrical.LOGGER.warn("Unknown DMX network member role '{}', falling back to NONE", raw);
+            return TheatricalNetworkMemberRole.NONE;
+        }
+        return role;
     }
 
     public NetworkMemberManager() {

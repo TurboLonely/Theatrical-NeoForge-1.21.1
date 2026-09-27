@@ -1,6 +1,5 @@
 package dev.imabad.theatrical.mixin;
 
-import dev.imabad.theatrical.compat.ModCompat;
 import net.fabricmc.loader.api.FabricLoader;
 import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
@@ -22,8 +21,7 @@ public class TheatricalMixinPlugin implements IMixinConfigPlugin {
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-        // Shimmer is installed we won't do any of our fancy lighting things.
-        return !mixinClassName.contains("LevelRendererMixin") || !ModCompat.SHIMMER;
+        return true;
     }
 
     @Override

@@ -31,10 +31,6 @@ subprojects {
             name = 'Rushmead'
             url = 'https://mvn.imabad.dev/repository/maven-releases/'
         }
-        // For Shimmer
-        maven {
-            url "https://maven.firstdarkdev.xyz/snapshots"
-        }
         maven { url 'https://jitpack.io' }
         mavenCentral()
         mavenLocal()

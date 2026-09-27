@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -45,7 +46,10 @@ public class SavedClientNetworkManager {
         String json = GSON.toJson(ipToNetworkIdMap);
         try {
             Files.createDirectories(savePath.getParent());
-            Files.writeString(savePath, json);
+            // Write a sibling temp file and rename over the target so an interrupted write cannot truncate it.
+            Path temp = savePath.resolveSibling(savePath.getFileName() + ".tmp");
+            Files.writeString(temp, json);
+            Files.move(temp, savePath, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
             e.printStackTrace();
         }

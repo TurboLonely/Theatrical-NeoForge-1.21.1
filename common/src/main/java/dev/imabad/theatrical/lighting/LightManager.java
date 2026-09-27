@@ -2,16 +2,13 @@ package dev.imabad.theatrical.lighting;
 
 import dev.imabad.theatrical.api.DynamicLightProvider;
 import dev.imabad.theatrical.blockentities.light.BaseLightBlockEntity;
-import dev.imabad.theatrical.compat.ModCompat;
-import dev.imabad.theatrical.compat.ShimmerCompat;
 import dev.imabad.theatrical.config.TheatricalConfig;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.core.SectionPos;
 import net.minecraft.util.Mth;
-import net.minecraft.world.level.ChunkPos;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3f;
@@ -19,7 +16,9 @@ import org.joml.Vector3f;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
@@ -30,6 +29,18 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class LightManager {
     private final static Set<DynamicLightProvider> dynamicLightSources = new HashSet<>();
     private final static ReentrantReadWriteLock lightSourcesLock = new ReentrantReadWriteLock();
+    /**
+     * Light sources bucketed by 16x16x16 section. {@link #getDynamicLightLevel(BlockPos)} runs for every block face
+     * during chunk meshing, so a flat scan over every fixture on the server made meshing cost grow linearly with the
+     * rig size. Bucketing narrows each lookup to the handful of sections a light of the configured spread can reach.
+     * <p>
+     * These are concurrent maps rather than lock-guarded ones on purpose: lookups happen on the mesh worker threads
+     * and must not contend with the render thread's bookkeeping.
+     */
+    private final static Map<Long, Set<DynamicLightProvider>> sourcesBySection = new ConcurrentHashMap<>();
+    private final static Map<DynamicLightProvider, Long> sectionOfSource = new ConcurrentHashMap<>();
+    /** How many sections out a light can reach, derived from the largest spread in use. */
+    private static volatile int bucketRadius = 1;
     public static long lastUpdate = System.currentTimeMillis();
     public static List<Integer> jarHoldingEntityList = new ArrayList<>();
     public static int lastUpdateCount = 0;
@@ -42,11 +53,60 @@ public class LightManager {
         if (containsLightSource(lightSource))
             return;
         lightSourcesLock.writeLock().lock();
-        dynamicLightSources.add(lightSource);
-        if(ModCompat.SHIMMER){
-            ShimmerCompat.addLight(lightSource);
+        try {
+            dynamicLightSources.add(lightSource);
+            growBucketRadius(lightSource.getLightSpread());
+            bucket(lightSource);
+        } finally {
+            lightSourcesLock.writeLock().unlock();
         }
-        lightSourcesLock.writeLock().unlock();
+    }
+
+    /**
+     * Places (or moves) a light source into the section bucket matching its current position. Safe to call while
+     * holding {@link #lightSourcesLock} because the bucket maps are concurrent.
+     */
+    private static void bucket(DynamicLightProvider lightSource) {
+        Vector3f pos = lightSource.getLightPos();
+        if (pos == null) {
+            return;
+        }
+        long section = SectionPos.asLong(
+                SectionPos.blockToSectionCoord(Mth.floor(pos.x)),
+                SectionPos.blockToSectionCoord(Mth.floor(pos.y)),
+                SectionPos.blockToSectionCoord(Mth.floor(pos.z)));
+        Long previous = sectionOfSource.put(lightSource, section);
+        if (previous != null && previous.longValue() == section) {
+            return;
+        }
+        if (previous != null) {
+            unbucket(lightSource, previous);
+        }
+        sourcesBySection.computeIfAbsent(section, key -> ConcurrentHashMap.newKeySet()).add(lightSource);
+    }
+
+    private static void unbucket(DynamicLightProvider lightSource, long section) {
+        Set<DynamicLightProvider> sources = sourcesBySection.get(section);
+        if (sources != null) {
+            sources.remove(lightSource);
+            if (sources.isEmpty()) {
+                sourcesBySection.remove(section, sources);
+            }
+        }
+    }
+
+    private static void forget(DynamicLightProvider lightSource) {
+        Long section = sectionOfSource.remove(lightSource);
+        if (section != null) {
+            unbucket(lightSource, section);
+        }
+    }
+
+    private static void growBucketRadius(float spread) {
+        int needed = Math.max(1, Mth.ceil(spread / (float) SectionPos.SECTION_SIZE));
+        if (needed > bucketRadius) {
+            bucketRadius = needed;
+        }
     }
 
     /**
@@ -88,24 +148,22 @@ public class LightManager {
      */
     public static void removeLightSource(DynamicLightProvider lightSource) {
         lightSourcesLock.writeLock().lock();
-
-        var sourceIterator = dynamicLightSources.iterator();
-        DynamicLightProvider it;
-        while (sourceIterator.hasNext()) {
-            it = sourceIterator.next();
-            if (it.equals(lightSource)) {
-                sourceIterator.remove();
-                if(ModCompat.SHIMMER){
-                    ShimmerCompat.removeLight(lightSource.getOwnerPos());
-                } else {
+        try {
+            var sourceIterator = dynamicLightSources.iterator();
+            DynamicLightProvider it;
+            while (sourceIterator.hasNext()) {
+                it = sourceIterator.next();
+                if (it.equals(lightSource)) {
+                    sourceIterator.remove();
+                    forget(it);
                     if (Minecraft.getInstance().level != null)
                         lightSource.scheduleTrackedChunksRebuild(Minecraft.getInstance().levelRenderer);
+                    break;
                 }
-                break;
             }
+        } finally {
+            lightSourcesLock.writeLock().unlock();
         }
-
-        lightSourcesLock.writeLock().unlock();
     }
 
     /**
@@ -119,17 +177,16 @@ public class LightManager {
         while (sourceIterator.hasNext()) {
             it = sourceIterator.next();
             sourceIterator.remove();
-            if(ModCompat.SHIMMER){
-                ShimmerCompat.removeLight(it.getOwnerPos());
-            } else {
-                if (Minecraft.getInstance().levelRenderer != null) {
-                    if (it.getLightLuminance() > 0)
-                        it.resetLight();
-                    it.scheduleTrackedChunksRebuild(Minecraft.getInstance().levelRenderer);
-                }
+            if (Minecraft.getInstance().levelRenderer != null) {
+                if (it.getLightLuminance() > 0)
+                    it.resetLight();
+                it.scheduleTrackedChunksRebuild(Minecraft.getInstance().levelRenderer);
             }
         }
         LightManager.jarHoldingEntityList = new ArrayList<>();
+        LightManager.sourcesBySection.clear();
+        LightManager.sectionOfSource.clear();
+        LightManager.bucketRadius = 1;
 
         lightSourcesLock.writeLock().unlock();
     }
@@ -239,11 +296,24 @@ public class LightManager {
      */
     public static double getDynamicLightLevel(@NotNull BlockPos pos) {
         double result = 0;
-        lightSourcesLock.readLock().lock();
-        for (var lightSource : dynamicLightSources) {
-            result = maxDynamicLightLevel(pos, lightSource, result);
+        int sectionX = SectionPos.blockToSectionCoord(pos.getX());
+        int sectionY = SectionPos.blockToSectionCoord(pos.getY());
+        int sectionZ = SectionPos.blockToSectionCoord(pos.getZ());
+        int radius = bucketRadius;
+        for (int x = -radius; x <= radius; x++) {
+            for (int y = -radius; y <= radius; y++) {
+                for (int z = -radius; z <= radius; z++) {
+                    Set<DynamicLightProvider> bucket = sourcesBySection.get(
+                            SectionPos.asLong(sectionX + x, sectionY + y, sectionZ + z));
+                    if (bucket == null) {
+                        continue;
+                    }
+                    for (DynamicLightProvider lightSource : bucket) {
+                        result = maxDynamicLightLevel(pos, lightSource, result);
+                    }
+                }
+            }
         }
-        lightSourcesLock.readLock().unlock();
 
         return Mth.clamp(result, 0, 15);
     }
@@ -261,6 +331,9 @@ public class LightManager {
         if (luminance > 0) {
             // Can't use Entity#squaredDistanceTo because of eye Y coordinate.
             Vector3f lightPos = lightSource.getLightPos();
+            if (lightPos == null) {
+                return currentLightLevel;
+            }
             double dx = pos.getX() - lightPos.x + 0.5;
             double dy = pos.getY() - lightPos.y + 0.5;
             double dz = pos.getZ() - lightPos.z + 0.5;
@@ -297,14 +370,6 @@ public class LightManager {
     }
 
     public static boolean shouldUpdateDynamicLight() {
-        return shouldUpdateDynamicLight(false);
-    }
-
-
-    public static boolean shouldUpdateDynamicLight(boolean checkShimmer) {
-        if(checkShimmer && ModCompat.SHIMMER){
-            return false;
-        }
         return TheatricalConfig.INSTANCE.COMMON.shouldEmitLight;
     }
 
@@ -317,49 +382,46 @@ public class LightManager {
             light.setPrevEmissionBlock(emissionBlock);
             light.setPrevLuminance(luminance);
             light.setPrevSpread(spread);
-            if(ModCompat.SHIMMER){
-                ShimmerCompat.handleLightUpdate(light);
-            } else {
-                theatricalLightHandler(light, renderer, luminance, emissionBlock);
-            }
+            growBucketRadius(spread);
+            // Keep the section index in step with the beam endpoint so lookups stay accurate.
+            bucket(light);
+            theatricalLightHandler(light, renderer, luminance, emissionBlock, spread);
             return true;
-        } else if(ModCompat.SHIMMER){
-            if(light.getPrevColour() != light.getLightColour() || light.getPrevSpread() != light.getLightSpread()){
-                light.setPrevColour(light.getLightColour());
-                light.setPrevSpread(light.getLightSpread());
-                ShimmerCompat.handleLightUpdate(light);
-            }
         }
         return false;
     }
 
-    private static void theatricalLightHandler(BaseLightBlockEntity light, LevelRenderer renderer, int luminance, BlockPos emissionBlock) {
+    /**
+     * Marks every chunk section the beam can actually reach as needing a re-mesh.
+     * <p>
+     * This used to dirty a fixed 2x2x2 block of sections regardless of the light's spread, which is only correct
+     * while the spread stays under a section width. Moving Wash reaches 13 blocks, so a radius-13 sphere centred
+     * anywhere off a section boundary extends a full section further than the old code touched - that part of the
+     * lit area kept its previous mesh and rendered with stale (wrong) lighting. Deriving the section range from
+     * the real reach fixes it, and still yields the same 8 sections for the smaller fixtures.
+     */
+    private static void theatricalLightHandler(BaseLightBlockEntity light, LevelRenderer renderer, int luminance, BlockPos emissionBlock, float spread) {
         var newPos = new LongOpenHashSet();
 
         if (luminance > 0) {
-            var entityChunkPos = new ChunkPos(emissionBlock);
-            var chunkPos = new BlockPos.MutableBlockPos(entityChunkPos.x, LambDynamicLightUtil.getSectionCoord(emissionBlock.getY()), entityChunkPos.z);
+            // Reach test in maxDynamicLightLevel is per-axis |block - emission| <= spread, so the extremes of the
+            // affected block coordinates are ceil(centre - spread) and floor(centre + spread).
+            int minSectionX = SectionPos.blockToSectionCoord(Mth.ceil(emissionBlock.getX() - spread));
+            int maxSectionX = SectionPos.blockToSectionCoord(Mth.floor(emissionBlock.getX() + spread));
+            int minSectionY = SectionPos.blockToSectionCoord(Mth.ceil(emissionBlock.getY() - spread));
+            int maxSectionY = SectionPos.blockToSectionCoord(Mth.floor(emissionBlock.getY() + spread));
+            int minSectionZ = SectionPos.blockToSectionCoord(Mth.ceil(emissionBlock.getZ() - spread));
+            int maxSectionZ = SectionPos.blockToSectionCoord(Mth.floor(emissionBlock.getZ() + spread));
 
-            LightManager.scheduleChunkRebuild(renderer, chunkPos);
-            LightManager.updateTrackedChunks(chunkPos, light.getTrackedLitChunkPos(), newPos);
-
-            var directionX = (emissionBlock.getX() & 15) >= 8 ? Direction.EAST : Direction.WEST;
-            var directionY = (emissionBlock.getY() & 15) >= 8 ? Direction.UP : Direction.DOWN;
-            var directionZ = (emissionBlock.getZ() & 15) >= 8 ? Direction.SOUTH : Direction.NORTH;
-
-            for (int i = 0; i < 7; i++) {
-                if (i % 4 == 0) {
-                    chunkPos.move(directionX); // X
-                } else if (i % 4 == 1) {
-                    chunkPos.move(directionZ); // XZ
-                } else if (i % 4 == 2) {
-                    chunkPos.move(directionX.getOpposite()); // Z
-                } else {
-                    chunkPos.move(directionZ.getOpposite()); // origin
-                    chunkPos.move(directionY); // Y
+            var chunkPos = new BlockPos.MutableBlockPos();
+            for (int sectionX = minSectionX; sectionX <= maxSectionX; sectionX++) {
+                for (int sectionY = minSectionY; sectionY <= maxSectionY; sectionY++) {
+                    for (int sectionZ = minSectionZ; sectionZ <= maxSectionZ; sectionZ++) {
+                        chunkPos.set(sectionX, sectionY, sectionZ);
+                        LightManager.scheduleChunkRebuild(renderer, chunkPos);
+                        LightManager.updateTrackedChunks(chunkPos, light.getTrackedLitChunkPos(), newPos);
+                    }
                 }
-                LightManager.scheduleChunkRebuild(renderer, chunkPos);
-                LightManager.updateTrackedChunks(chunkPos, light.getTrackedLitChunkPos(), newPos);
             }
         }
         // Schedules the rebuild of removed chunks.

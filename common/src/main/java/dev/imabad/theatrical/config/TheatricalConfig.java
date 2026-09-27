@@ -46,6 +46,8 @@ public class TheatricalConfig {
         public int defaultMaxLightDist = 25;
         @TheatricalConfigItem(minValue = "0")
         public double maxLightDistance = 7.75;
+        @TheatricalConfigItem(minValue = "1")
+        public int rayTraceRefreshTicks = 10;
 
         private double maxLightDistanceSquared = -1;
 

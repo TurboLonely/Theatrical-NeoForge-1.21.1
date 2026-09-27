@@ -39,6 +39,18 @@ public abstract class BaseLightBlockEntity extends ClientSyncBlockEntity impleme
     private long tickTimer = 0;
     private BlockPos emissionBlock, prevEmissionBlock;
     private int prevLuminance;
+    /**
+     * Cached result of {@link #getLightPos()} so the lighting hot path does not allocate per lookup.
+     * Invalidated whenever {@link #emissionBlock} changes. Volatile because the cache is written from the
+     * tick thread but read from the chunk-meshing worker threads.
+     */
+    private volatile Vector3f cachedLightPos;
+    /**
+     * Fixture state the last ray trace was performed for. A stationary fixture produces the same trace result
+     * every tick, so tracing is skipped until pan/tilt/intensity change or the periodic refresh elapses.
+     */
+    private int tracedPan = Integer.MIN_VALUE, tracedTilt = Integer.MIN_VALUE, tracedIntensity = Integer.MIN_VALUE;
+    private int ticksSinceRayTrace;
     private LongOpenHashSet trackedLitChunkPos = new LongOpenHashSet();
 
     public BaseLightBlockEntity(BlockEntityType<?> blockEntityType, BlockPos blockPos, BlockState blockState) {
@@ -191,7 +203,11 @@ public abstract class BaseLightBlockEntity extends ClientSyncBlockEntity impleme
                 tile.tickTimer = 0;
             }
             if(tile.shouldTrace()){
-                tile.distance = tile.doRayTrace();
+                tile.rayTraceIfNeeded();
+            } else {
+                // Dark: mark the cached trace stale so the beam is recomputed the moment the fixture lights up again,
+                // rather than reusing the endpoint from before it went dark.
+                tile.invalidateRayTrace();
             }
             if (level.isClientSide() && LightManager.shouldUpdateDynamicLight()) {
                 if (tile.isRemoved()) {
@@ -379,6 +395,28 @@ public abstract class BaseLightBlockEntity extends ClientSyncBlockEntity impleme
         }
     }
 
+    /**
+     * Traces the beam only when it can actually produce a different answer: the fixture moved (pan/tilt/intensity
+     * changed) or the periodic refresh elapsed so world edits are still picked up. Idle fixtures previously ran a
+     * voxel ray trace every single tick on both client and server for no benefit.
+     */
+    private void rayTraceIfNeeded() {
+        boolean moved = pan != tracedPan || tilt != tracedTilt || intensity != tracedIntensity;
+        if (moved || ++ticksSinceRayTrace >= TheatricalConfig.INSTANCE.COMMON.rayTraceRefreshTicks) {
+            tracedPan = pan;
+            tracedTilt = tilt;
+            tracedIntensity = intensity;
+            ticksSinceRayTrace = 0;
+            distance = doRayTrace();
+        }
+    }
+
+    /** Forces the next {@link #rayTraceIfNeeded()} to trace even if pan/tilt/intensity look unchanged. */
+    private void invalidateRayTrace() {
+        tracedIntensity = Integer.MIN_VALUE;
+        ticksSinceRayTrace = 0;
+    }
+
     public double doRayTrace() {
         Vec3 viewVector = BaseLightBlockEntity.rayTraceDir(this);
         double distance = getMaxLightDistance();
@@ -395,6 +433,7 @@ public abstract class BaseLightBlockEntity extends ClientSyncBlockEntity impleme
         }
         distance = new Vec3(lightPos.getX(), lightPos.getY(), lightPos.getZ()).distanceTo(new Vec3(getBlockPos().getX(), getBlockPos().getY(), getBlockPos().getZ()));
         emissionBlock = lightPos;
+        cachedLightPos = null;
         return distance;
     }
 
@@ -403,6 +442,7 @@ public abstract class BaseLightBlockEntity extends ClientSyncBlockEntity impleme
         if(emissionBlock != null){
             this.setLightEnabled(false);
             emissionBlock = null;
+            cachedLightPos = null;
         }
         super.setRemoved();
     }
@@ -425,7 +465,15 @@ public abstract class BaseLightBlockEntity extends ClientSyncBlockEntity impleme
 
     @Override
     public Vector3f getLightPos() {
-        return Vec3.atCenterOf(emissionBlock).toVector3f();
+        Vector3f cached = cachedLightPos;
+        if (cached == null) {
+            if (emissionBlock == null) {
+                return null;
+            }
+            cached = Vec3.atCenterOf(emissionBlock).toVector3f();
+            cachedLightPos = cached;
+        }
+        return cached;
     }
 
     @Override

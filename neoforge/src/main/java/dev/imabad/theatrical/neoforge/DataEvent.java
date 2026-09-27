@@ -39,7 +39,7 @@ public class DataEvent {
             simpleBlock(Blocks.REDSTONE_INTERFACE.get());
             ModelFile.ExistingModelFile trussModel = models().getExistingFile(ResourceLocation.tryParse("theatrical:block/truss"));
             axisBlock(Blocks.TRUSS_BLOCK.get(), trussModel, trussModel);
-            horizontalBlock(Blocks.BASIC_LIGHTING_DESK.get(), models().getExistingFile(ResourceLocation.tryParse("theatrical:block/lighting_console")));
+            horizontalBlock(Blocks.BASIC_LIGHTING_DESK.get(), models().getExistingFile(ResourceLocation.tryParse("theatrical:block/basic_lighting_desk")));
             getVariantBuilder(Blocks.TANK_TRAP.get()).forAllStates(blockState -> {
                 ModelFile file = models().getExistingFile(ResourceLocation.tryParse("theatrical:block/tank_trap"));
                 if(blockState.getValue(TankTrapBlock.HAS_PIPE)){
@@ -69,7 +69,7 @@ public class DataEvent {
             withExistingParent(Blocks.LED_FRESNEL.getId().getPath(), Theatrical.location( "block/fresnel/fresnel_whole"));
             withExistingParent(Blocks.TANK_TRAP.getId().getPath(), Theatrical.location( "block/tank_trap"));
             withExistingParent(Blocks.LED_PANEL.getId().getPath(), Theatrical.location( "block/led_panel"));
-            withExistingParent(Blocks.BASIC_LIGHTING_DESK.getId().getPath(), Theatrical.location( "block/lighting_console"));
+            withExistingParent(Blocks.BASIC_LIGHTING_DESK.getId().getPath(), Theatrical.location( "block/basic_lighting_desk"));
             withExistingParent(Items.CONFIGURATION_CARD.getId().getPath(), mcLoc("item/generated"))
                     .texture("layer0", Theatrical.location( "item/configuration_card"));
         }

@@ -58,6 +58,8 @@ public class BasicLightingDeskBlockEntity extends ClientSyncBlockEntity implemen
     }
 
     private int ticks = 0;
+    /** Reused output buffer; every consumer copies the channel slice it needs, so this is safe to hand out. */
+    private final byte[] dmxOutput = new byte[512];
     private byte[] faders = new byte[12];
     private final byte[] actualDMX = new byte[12];
     private int currentStep = 0;
@@ -107,7 +109,8 @@ public class BasicLightingDeskBlockEntity extends ClientSyncBlockEntity implemen
                 }
             }
             ticks = 0;
-            byte[] dmx = new byte[512];
+            byte[] dmx = dmxOutput;
+            Arrays.fill(dmx, (byte) 0);
             for(int i = 0; i < faders.length; i++){
                 dmx[i] = (byte) (convertByteToInt(faders[i]) * (convertByteToInt(grandMaster) / 255F));
             }
