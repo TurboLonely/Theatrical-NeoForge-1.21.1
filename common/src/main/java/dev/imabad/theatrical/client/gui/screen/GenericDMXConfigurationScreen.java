@@ -9,6 +9,7 @@ import dev.imabad.theatrical.client.gui.widgets.LabeledEditBox;
 import dev.imabad.theatrical.net.UpdateDMXFixture;
 import dev.imabad.theatrical.net.UpdateNetworkId;
 import dev.imabad.theatrical.util.UUIDUtil;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
@@ -113,6 +114,7 @@ public class GenericDMXConfigurationScreen<T extends DMXConsumer> extends Screen
             }
             NetworkManager.sendToServer(new UpdateDMXFixture(blockPos, dmx, universe));
             NetworkManager.sendToServer(new UpdateNetworkId(blockPos, networkId));
+            Minecraft.getInstance().setScreen(null);
         } catch(NumberFormatException ignored) {
             //We need a nicer way to show that this is invalid?
         }
