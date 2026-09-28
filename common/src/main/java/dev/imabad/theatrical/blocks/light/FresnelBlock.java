@@ -132,7 +132,7 @@ public class FresnelBlock extends BaseLightBlock {
         } else {
             NetworkManager.sendToPlayer((ServerPlayer) player, new OpenScreen(pos, TheatricalScreen.GENERIC_PAN_TILT));
         }
-        return super.useWithoutItem(state, level, pos, player, hitResult);
+        return InteractionResult.SUCCESS;
     }
 
     @Override

@@ -126,6 +126,6 @@ public class LEDPanelBlock extends BaseLightBlock {
         } else {
             NetworkManager.sendToPlayer((ServerPlayer) player, new OpenScreen(pos, TheatricalScreen.GENERIC_DMX));
         }
-        return super.useWithoutItem(state, level, pos, player, hitResult);
+        return InteractionResult.SUCCESS;
     }
 }

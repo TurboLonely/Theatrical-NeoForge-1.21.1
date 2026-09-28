@@ -13,7 +13,8 @@ public enum TheatricalScreen {
     GENERIC_DMX,
     BASIC_LIGHTING_DESK,
     FRESNEL,
-    GENERIC_PAN_TILT;
+    GENERIC_PAN_TILT,
+    ART_NET_INTERFACE;
 
     public static final IntFunction<TheatricalScreen> BY_ID =
             ByIdMap.continuous(

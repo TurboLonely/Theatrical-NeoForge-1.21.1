@@ -10,6 +10,7 @@ import dev.architectury.registry.client.rendering.BlockEntityRendererRegistry;
 import dev.imabad.theatrical.api.dmx.DMXConsumer;
 import dev.imabad.theatrical.blockentities.BlockEntities;
 import dev.imabad.theatrical.blockentities.control.BasicLightingDeskBlockEntity;
+import dev.imabad.theatrical.blockentities.interfaces.ArtNetInterfaceBlockEntity;
 import dev.imabad.theatrical.blockentities.light.BaseDMXConsumerLightBlockEntity;
 import dev.imabad.theatrical.blockentities.light.BaseLightBlockEntity;
 import dev.imabad.theatrical.blockentities.light.FresnelBlockEntity;
@@ -23,6 +24,7 @@ import dev.imabad.theatrical.client.blockentities.MovingWashRenderer;
 import dev.imabad.theatrical.client.dmx.ArtNetManager;
 import dev.imabad.theatrical.client.dmx.ArtNetToNetworkClientData;
 import dev.imabad.theatrical.client.dmx.TheatricalArtNetClient;
+import dev.imabad.theatrical.client.gui.screen.ArtNetInterfaceScreen;
 import dev.imabad.theatrical.client.gui.screen.BasicLightingDeskScreen;
 import dev.imabad.theatrical.client.gui.screen.GenericManualPanTiltScreen;
 import dev.imabad.theatrical.client.gui.screen.GenericDMXConfigurationScreen;
@@ -230,6 +232,11 @@ public class TheatricalClient {
             case BASIC_LIGHTING_DESK -> {
                 if(Minecraft.getInstance().level.getBlockEntity(openScreen.pos()) instanceof BasicLightingDeskBlockEntity bse) {
                     Minecraft.getInstance().setScreen(new BasicLightingDeskScreen(bse));
+                }
+            }
+            case ART_NET_INTERFACE -> {
+                if(Minecraft.getInstance().level.getBlockEntity(openScreen.pos()) instanceof ArtNetInterfaceBlockEntity interfaceBlockEntity) {
+                    Minecraft.getInstance().setScreen(new ArtNetInterfaceScreen(interfaceBlockEntity));
                 }
             }
         }

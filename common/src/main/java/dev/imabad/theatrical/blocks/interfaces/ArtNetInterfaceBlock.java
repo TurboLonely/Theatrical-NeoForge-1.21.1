@@ -1,13 +1,12 @@
 package dev.imabad.theatrical.blocks.interfaces;
 
+import dev.architectury.networking.NetworkManager;
+import dev.imabad.theatrical.TheatricalScreen;
 import dev.imabad.theatrical.blockentities.interfaces.ArtNetInterfaceBlockEntity;
 import dev.imabad.theatrical.blocks.Blocks;
-import dev.imabad.theatrical.client.gui.screen.ArtNetInterfaceScreen;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.client.Minecraft;
+import dev.imabad.theatrical.net.OpenScreen;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.InteractionHand;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -45,6 +44,14 @@ public class ArtNetInterfaceBlock extends Block implements EntityBlock {
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> blockEntityType) {
         return level.isClientSide ? ArtNetInterfaceBlockEntity::tick : null;
+    }
+
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
+        if(!level.isClientSide){
+            NetworkManager.sendToPlayer((ServerPlayer) player, new OpenScreen(pos, TheatricalScreen.ART_NET_INTERFACE));
+        }
+        return InteractionResult.SUCCESS;
     }
 
     @Override
