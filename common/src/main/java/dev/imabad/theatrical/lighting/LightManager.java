@@ -373,6 +373,18 @@ public class LightManager {
         return TheatricalConfig.INSTANCE.COMMON.shouldEmitLight;
     }
 
+    /**
+     * Returns whether any dynamic light source is currently bucketed.
+     * <p>
+     * {@link #getDynamicLightLevel(BlockPos)} only ever reads from {@link #sourcesBySection}, so an empty index means
+     * every lookup would resolve to {@code 0} and {@link #getLightmapWithDynamicLight(double, int)} would hand the
+     * lightmap back untouched. Callers on the render hot path can use this as an O(1), lock-free early-out instead of
+     * paying for a block state lookup and a section scan per block face when no fixture is lit.
+     */
+    public static boolean hasLightSources() {
+        return !sourcesBySection.isEmpty();
+    }
+
     public static boolean updateDynamicLight(BaseLightBlockEntity light, LevelRenderer renderer){
         int luminance = light.getLightLuminance();
         float spread = light.getLightSpread();

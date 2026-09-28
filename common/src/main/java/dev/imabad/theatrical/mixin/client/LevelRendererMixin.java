@@ -25,6 +25,10 @@ public abstract class LevelRendererMixin {
     private static void onGetLightmapCoordinates(BlockAndTintGetter world, BlockState state, BlockPos pos, CallbackInfoReturnable<Integer> cir) {
         if (!LightManager.shouldUpdateDynamicLight())
             return; // Do not touch to the value.
+        // getLightColor runs for every block face during chunk meshing. With no lit fixture the section index is
+        // empty, so bail out before the block state lookup and the section scan - the result is provably unchanged.
+        if (!LightManager.hasLightSources())
+            return;
         if (!world.getBlockState(pos).isSolidRender(world, pos))
             cir.setReturnValue(LightManager.getLightmapWithDynamicLight(pos, cir.getReturnValue()));
     }
