@@ -67,8 +67,9 @@ Grab the latest jar from the [**Releases**](../../releases) page of this reposit
 Each release ships:
 
 - `Theatrical-neoforge-<version>+mc1.21.1.jar` — the mod itself.
-- `Theatrical-汉化资源包.zip` — an **optional** Simplified Chinese translation resource pack
-  (contributed separately, not part of the mod). Enable it in *Options → Resource Packs*.
+- `Theatrical-zh_cn-resourcepack.zip` — an **optional** Simplified Chinese translation resource
+  pack (汉化资源包, contributed separately, not part of the mod). Enable it in
+  *Options → Resource Packs*.
 
 ## Building from source
 
@@ -138,6 +139,7 @@ retained, as required by the license. If you redistribute this or a modified ver
 重做网络层、移除可选的 Shimmer 兼容层。模组内容与材质资源未做改动。
 
 **汉化资源包：** 每个 Release 附带一个可选的简体中文资源包
-`Theatrical-汉化资源包.zip`，在「选项 → 资源包」中启用即可，不启用不影响游戏。
+`Theatrical-zh_cn-resourcepack.zip`（因 GitHub 会过滤附件名中的非 ASCII 字符，故用英文名），
+在「选项 → 资源包」中启用即可，不启用不影响游戏。
 
 **反馈：** 本移植版的问题请在本仓库提 Issue，请勿打扰原作者。
