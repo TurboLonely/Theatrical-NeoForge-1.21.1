@@ -1,5 +1,7 @@
 {
+  "artneti.dmxAddress.enable": "Enable Address",
   "artneti.dmxUniverse": "Network Universe",
+  "artneti.dmxUniverse.enable": "Enable Universe",
   "artneti.ipAddress": "IP Address",
   "artneti.lastReceived": "Data received %d second(s) ago",
   "artneti.notAuthorized": "You're not authorized!",
@@ -45,6 +47,8 @@
   "screen.artnetconfig.networkUniverse": "Network Universe",
   "screen.artnetconfig.subnet": "Art-Net Subnet",
   "screen.artnetconfig.universe": "Art-Net Universe",
+  "screen.artnetinterface": "ArtNet Interface",
+  "screen.basicLightingDesk": "Basic Lighting Desk",
   "screen.configurationcard": "Configuration Card",
   "screen.configurationcard.autoincrement": "Address Auto Increment",
   "screen.movinglight": "Moving Light",

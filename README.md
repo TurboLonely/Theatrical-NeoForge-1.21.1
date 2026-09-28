@@ -37,7 +37,8 @@ Work done in this port, on top of the upstream `ver/1.21.1` branch:
   its mixin plugin hooks.
 - Aligned the mod metadata `license` field with the repository `LICENSE` (MIT).
 
-Upstream features, content, textures and assets are unchanged.
+Upstream features, content, textures and assets are unchanged, except for the addition of a
+built-in Simplified Chinese language file (`assets/theatrical/lang/zh_cn.json`).
 
 ---
 
@@ -62,14 +63,13 @@ Upstream features, content, textures and assets are unchanged.
 
 ## Downloads
 
-Grab the latest jar from the [**Releases**](../../releases) page of this repository.
-
-Each release ships:
+Grab the latest jar from the [**Releases**](../../releases) page of this repository:
 
 - `Theatrical-neoforge-<version>+mc1.21.1.jar` — the mod itself.
-- `Theatrical-zh_cn-resourcepack.zip` — an **optional** Simplified Chinese translation resource
-  pack (汉化资源包, contributed separately, not part of the mod). Enable it in
-  *Options → Resource Packs*.
+
+This port ships a **built-in Simplified Chinese localization** (`assets/theatrical/lang/zh_cn.json`
+inside the jar). Set the game language to *简体中文 (Simplified Chinese)* and it applies
+automatically — **no separate resource pack is required**.
 
 ## Building from source
 
@@ -136,10 +136,10 @@ retained, as required by the license. If you redistribute this or a modified ver
 **安装：** 安装 NeoForge 后，把 Architectury API 与本模组的 jar 一起放进 `mods` 文件夹即可。
 
 **本移植版改动：** 移除 Fabric / Forge 模块（仅保留 NeoForge）、完成 1.21.1 API 迁移、
-重做网络层、移除可选的 Shimmer 兼容层。模组内容与材质资源未做改动。
+重做网络层、移除可选的 Shimmer 兼容层。除新增简体中文语言文件外，模组内容与材质资源均未改动。
 
-**汉化资源包：** 每个 Release 附带一个可选的简体中文资源包
-`Theatrical-zh_cn-resourcepack.zip`（因 GitHub 会过滤附件名中的非 ASCII 字符，故用英文名），
-在「选项 → 资源包」中启用即可，不启用不影响游戏。
+**内置汉化：** 本移植版已将简体中文语言文件直接内置进模组 jar
+（`assets/theatrical/lang/zh_cn.json`），把游戏语言设为「简体中文」即自动生效，
+无需再额外安装任何汉化资源包。
 
 **反馈：** 本移植版的问题请在本仓库提 Issue，请勿打扰原作者。

@@ -96,6 +96,8 @@ public class DataEvent {
             addItem(Items.CONFIGURATION_CARD, "Configuration Card");
             add("itemGroup.theatrical", "Theatrical");
             add("artneti.dmxUniverse", "Network Universe");
+            add("artneti.dmxAddress.enable", "Enable Address");
+            add("artneti.dmxUniverse.enable", "Enable Universe");
             add("artneti.ipAddress", "IP Address");
             add("artneti.save", "Save");
             add("artneti.notConnected", "No data received");
@@ -135,6 +137,8 @@ public class DataEvent {
             add("screen.artnetconfig.entry.universe", "Universe: %s");
             add("screen.artnetconfig.subnet", "Art-Net Subnet");
             add("screen.artnetconfig.universe", "Art-Net Universe");
+            add("screen.artnetinterface", "ArtNet Interface");
+            add("screen.basicLightingDesk", "Basic Lighting Desk");
             add("screen.artnetconfig.networkUniverse", "Network Universe");
             add("screen.artnetconfig.networkEnabled", "Enabled");
             add("item.configurationcard.description.1", "Shift + Right Click for settings");
